@@ -3,14 +3,12 @@ package io.proj3ct.TelegramBot;
 import java.util.*;
 
 public class UserSubs {
-    private long id;
     private Map<String, String> request = new HashMap<>();
     private Queue<String> personalSubs = new PriorityQueue<>();
 
     public boolean setSub(String request, String url) {
         if (this.request.containsKey(request))
             return false;
-
         this.request.put(request, url);
         return true;
     }

@@ -80,54 +80,45 @@ public class TgBot extends TelegramLongPollingBot {
             long chatId = update.getCallbackQuery().getMessage().getChatId();
             long  messageId = update.getCallbackQuery().getMessage().getMessageId();
             String lastMessage = update.getCallbackQuery().getMessage().getText();
-            String  request = update.getCallbackQuery().getData();
-
-            if (request.startsWith("Subscribe")){
-                request = request.substring(9);
-                if (!(subs.containsKey(chatId)))
-                    subs.put(chatId, new UserSubs());
-                if (subs.get(chatId).setSub(request, ""))
-                    editMedia(chatId, messageId, "SubPic.jpg", inlineKeyboardMarkup(new String[]{request, "Unsubscribe"}));
-                else
-                    sendMessage(chatId, "You have already subscribed");
-                return;
-            }
-
-            if (request.startsWith("Unsubscribe")) {
-                request = request.substring(11);
-                    if (subs.get(chatId).deleteSub(request) && update.getCallbackQuery().getMessage().hasPhoto())
-                        editMedia(chatId, messageId, "UnsubPic.jpg", inlineKeyboardMarkup(new String[]{request, "Subscribe"}));
+            String[] request = update.getCallbackQuery().getData().split(" ");
+            switch (request[0]){
+                case "Subscribe" -> {
+                    if (!(subs.containsKey(chatId)))
+                        subs.put(chatId, new UserSubs());
+                    if (subs.get(chatId).setSub(request[1], ""))
+                        editMedia(chatId, messageId, "SubPic.jpg", inlineKeyboardMarkup(request[1], "Unsubscribe"));
+                    else
+                        sendMessage(chatId, "You have already subscribed");
+                }
+                case "Unsubscribe" -> {
+                    if (subs.get(chatId).deleteSub(request[1]) && update.getCallbackQuery().getMessage().hasPhoto())
+                        editMedia(chatId, messageId, "UnsubPic.jpg", inlineKeyboardMarkup(request[1], "Subscribe"));
                     else
                         sendMessage(chatId, "You have already cancelled your subscription");
-                return;
-            }
-
-            if (request.startsWith("Exit")){
-                deleteMessage(chatId, messageId);
-                return;
-            }
-
-            if (request.startsWith("View") || request.startsWith("Next")){
-                String requestSub = subs.get(chatId).pollQueue();
-                String[] buttons = new String[]{requestSub, "Next", "Unsubscribe", "Exit"};
-                if (subs.get(chatId).emptyQueue())
-                    buttons = new String[]{requestSub, "Unsubscribe", "Exit"};
-                editMessageText(chatId, messageId, lastMessage, inlineKeyboardMarkup(buttons));
-                return;
-            }
-
-            String url = downloadContent(request);
-            String[] buttons = new String[]{request, url, "Subscribe"};
-            if (subs.containsKey(chatId) && subs.get(chatId).keyExist(request))
-                buttons = new String[]{request, url, "Unsubscribe"};
-
-            if (lastMessage == null) {
-                editMedia(chatId, messageId, url, inlineKeyboardMarkup(buttons));
-                return;
                 }
-            editMessageText(chatId, messageId, "Loading...");
-            sendPhoto(chatId, new InputFile(resizePic(url)), inlineKeyboardMarkup(buttons));
-            deleteMessage(chatId, messageId);
+                case "View", "Next" -> {
+                    String requestSub = subs.get(chatId).pollQueue();
+                    String[] buttons = new String[]{requestSub, "Next", "Unsubscribe", "Exit"};
+                    if (subs.get(chatId).emptyQueue())
+                        buttons = new String[]{requestSub, "Unsubscribe", "Exit"};
+                    editMessageText(chatId, messageId, lastMessage, inlineKeyboardMarkup(buttons));
+                }
+                case "Exit" -> deleteMessage(chatId, messageId);
+                default -> {
+                    String url = downloadContent(request[0]);
+                    String[] buttons = new String[]{request[0], url, "Subscribe"};
+                    if (subs.containsKey(chatId) && subs.get(chatId).keyExist(request[0]))
+                        buttons = new String[]{request[0], url, "Unsubscribe"};
+
+                    if (lastMessage == null && url != null) {
+                        editMedia(chatId, messageId, url, inlineKeyboardMarkup(buttons));
+                        return;
+                    }
+                    editMessageText(chatId, messageId, "Loading...");
+                    sendPhoto(chatId, new InputFile(resizePic(url)), inlineKeyboardMarkup(buttons));
+                    deleteMessage(chatId, messageId);
+                }
+            }
         }
         else
             sendMessage(update.getMessage().getChatId(), "I dont know what to do with it");
@@ -141,6 +132,7 @@ public class TgBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
+            e.printStackTrace();
         }
     }
 
@@ -154,7 +146,7 @@ public class TgBot extends TelegramLongPollingBot {
         try {
             execute(messageText);
         } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -171,7 +163,7 @@ public class TgBot extends TelegramLongPollingBot {
         try {
             execute(media);
         } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -186,6 +178,7 @@ public class TgBot extends TelegramLongPollingBot {
             sendPhoto.setPhoto(file);
             execute(sendPhoto);
         } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -196,7 +189,7 @@ public class TgBot extends TelegramLongPollingBot {
         try {
             execute(deleteMessage);
         } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -256,7 +249,7 @@ public class TgBot extends TelegramLongPollingBot {
         }
     }
 
-    private InlineKeyboardMarkup inlineKeyboardMarkup(String[] requestBtn){
+    private InlineKeyboardMarkup inlineKeyboardMarkup(String... requestBtn){
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
         List<InlineKeyboardButton> rowInline = new ArrayList<>();
@@ -268,7 +261,7 @@ public class TgBot extends TelegramLongPollingBot {
                     button.setUrl(downloadImage(requestBtn[i]));
                 } else if (requestBtn[i].equals("Subscribe") || requestBtn[i].equals("Unsubscribe")){
                     button.setText(requestBtn[i]);
-                    button.setCallbackData(requestBtn[i] + requestBtn[0]);
+                    button.setCallbackData(requestBtn[i] + " " + requestBtn[0]);
                 } else {
                     button.setText(requestBtn[i]);
                     button.setCallbackData(requestBtn[i]);
@@ -295,8 +288,8 @@ public class TgBot extends TelegramLongPollingBot {
             return file;
         } catch (Exception e){
             e.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     private String downloadImage(String url){
@@ -345,7 +338,8 @@ public class TgBot extends TelegramLongPollingBot {
                 src = src.substring(34, src.indexOf("_cp"));
                 return FINAL_START_URL + src + endUrl.substring(endUrl.indexOf(".")) + FINAL_MIDDLE_URL + endUrl;
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
+                return null;
             }
         }
     }
