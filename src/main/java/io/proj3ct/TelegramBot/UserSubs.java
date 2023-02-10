@@ -6,11 +6,15 @@ public class UserSubs {
     private Map<String, String> request = new HashMap<>();
     private Queue<String> personalSubs = new PriorityQueue<>();
 
-    public boolean setSub(String request, String url) {
+    public boolean setSub(String request) {
         if (this.request.containsKey(request))
             return false;
-        this.request.put(request, url);
+        this.request.put(request, "");
         return true;
+    }
+
+    public void setLastUrlPic(String request, String url){
+        this.request.put(request, url);
     }
 
     public boolean deleteSub(String request){
